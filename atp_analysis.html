@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+<title>Exploratory Analysis of 2012-2017 ATP World Tour Dataset</title>
+
+<script type="text/javascript">
+window.onload = function() {
+  var imgs = document.getElementsByTagName('img'), i, img;
+  for (i = 0; i < imgs.length; i++) {
+    img = imgs[i];
+    // center an image if it is the only element of its parent
+    if (img.parentElement.childElementCount === 1)
+      img.parentElement.style.textAlign = 'center';
+  }
+};
+</script>
+
+
+
+
+
+<style type="text/css">
+body, td {
+   font-family: sans-serif;
+   background-color: white;
+   font-size: 13px;
+}
+
+body {
+  max-width: 800px;
+  margin: auto;
+  padding: 1em;
+  line-height: 20px;
+}
+
+tt, code, pre {
+   font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+
+h1 {
+   font-size:2.2em;
+}
+
+h2 {
+   font-size:1.8em;
+}
+
+h3 {
+   font-size:1.4em;
+}
+
+h4 {
+   font-size:1.0em;
+}
+
+h5 {
+   font-size:0.9em;
+}
+
+h6 {
+   font-size:0.8em;
+}
+
+a:visited {
+   color: rgb(50%, 0%, 50%);
+}
+
+pre, img {
+  max-width: 100%;
+}
+pre {
+  overflow-x: auto;
+}
+pre code {
+   display: block; padding: 0.5em;
+}
+
+code {
+  font-size: 92%;
+  border: 1px solid #ccc;
+}
+
+code[class] {
+  background-color: #F8F8F8;
+}
+
+table, td, th {
+  border: none;
+}
+
+blockquote {
+   color:#666666;
+   margin:0;
+   padding-left: 1em;
+   border-left: 0.5em #EEE solid;
+}
+
+hr {
+   height: 0px;
+   border-bottom: none;
+   border-top-width: thin;
+   border-top-style: dotted;
+   border-top-color: #999999;
+}
+
+@media print {
+   * {
+      background: transparent !important;
+      color: black !important;
+      filter:none !important;
+      -ms-filter: none !important;
+   }
+
+   body {
+      font-size:12pt;
+      max-width:100%;
+   }
+
+   a, a:visited {
+      text-decoration: underline;
+   }
+
+   hr {
+      visibility: hidden;
+      page-break-before: always;
+   }
+
+   pre, blockquote {
+      padding-right: 1em;
+      page-break-inside: avoid;
+   }
+
+   tr, img {
+      page-break-inside: avoid;
+   }
+
+   img {
+      max-width: 100% !important;
+   }
+
+   @page :left {
+      margin: 15mm 20mm 15mm 10mm;
+   }
+
+   @page :right {
+      margin: 15mm 10mm 15mm 20mm;
+   }
+
+   p, h2, h3 {
+      orphans: 3; widows: 3;
+   }
+
+   h2, h3 {
+      page-break-after: avoid;
+   }
+}
+</style>
+
+
+
+</head>
+
+<body>
+<h1>Exploratory Analysis of 2012-2017 ATP World Tour Dataset</h1>
+
+<h3><em>Nisha Patel</em></h3>
+
+<p>This report analyzes data from 2012-2017 collected on the ATP World Tour (Men&#39;s Professional Tennis Circuit). It should be noted that the data for 2017 is incomplete: data is missing after July 2017. The following questions below were addressed:</p>
+
+<ol>
+<li>What does the distribution of tournaments look like by surface?</li>
+<li>What does the distribution of tournaments look like by court type?</li>
+<li>Given a specific player&#39;s name, what does the distribution of their wins look like by surface?</li>
+<li>Given a specific player&#39;s name, what does their rankings history look like from 2012-2017?</li>
+<li>Given a specific player&#39;s name, what does their Top N rankings history look like? Example: Top 10, 30, 50, 100, etc.</li>
+</ol>
+
+<h3>Code to Install Packages</h3>
+
+<pre><code class="r">#### Requires: Package name
+#### Modifies: Nothing
+#### Effects: Installs package if not installed already
+install_packages &lt;- function(pkg) { 
+
+  # Install package if it is not already
+  if (!(pkg %in% installed.packages()[, &quot;Package&quot;])){ 
+
+    install.packages(pkg, repos=&#39;http://cran.us.r-project.org&#39;)
+  }
+
+  library(pkg, character.only = TRUE)
+
+} # end installPackages()
+
+pkg_list = c(&quot;tidyverse&quot;, &quot;stringr&quot;, &quot;lubridate&quot;, &quot;gridExtra&quot;)
+lapply(pkg_list, install_packages)
+</code></pre>
+
+<h3>Read in the Input File</h3>
+
+<p>First step of analysis: Read in the dataset!</p>
+
+<pre><code class="r"># Read in the input file/dataset
+v1 &lt;- read_csv(&quot;ATP Dataset_2012-01 to 2017-07_Int_V4.csv&quot;)
+</code></pre>
+
+<p>Here is a look at all the variables in the dataset:</p>
+
+<pre><code class="r">colnames(v1)
+</code></pre>
+
+<pre><code>##  [1] &quot;ATP&quot;                  &quot;Tournament&quot;           &quot;Tournament_Int&quot;      
+##  [4] &quot;Day of Week&quot;          &quot;Month and Day&quot;        &quot;Year&quot;                
+##  [7] &quot;Date&quot;                 &quot;Court&quot;                &quot;Court_Int&quot;           
+## [10] &quot;Surface&quot;              &quot;Surface_Int&quot;          &quot;Round&quot;               
+## [13] &quot;Round_Int&quot;            &quot;Best_of&quot;              &quot;Winner&quot;              
+## [16] &quot;Winner_Int&quot;           &quot;Player1&quot;              &quot;Player1_Int&quot;         
+## [19] &quot;Player2&quot;              &quot;Player2_Int&quot;          &quot;Player1_Rank&quot;        
+## [22] &quot;Player2_Rank&quot;         &quot;Player1_Odds&quot;         &quot;Player2_Odds&quot;        
+## [25] &quot;Player1_Implied_Prob&quot; &quot;Player2_Implied_Prob&quot;
+</code></pre>
+
+<p>Upon looking at the columns and their data types, I needed to take 2 steps before I could perform  exploratory analysis:</p>
+
+<ol>
+<li><p>I added in a month column and year column. There were existing columns for month and year in the dataset as seen above, but these columns were in text format, not date format. </p></li>
+<li><p>Every match for each round of all tournaments 2012-2017 can be found in the dataset. I created a subset of the data called tourn_winners that only featured the final match from each tournament. This way, I can accurately account for each tournament one time (in order to answer Questions 1 and 2!)</p></li>
+</ol>
+
+<pre><code class="r"># Parse to get month and year components 
+v2 &lt;- v1 %&gt;% mutate(date_month = month(mdy(Date), label = T, abbr = T),
+                                         date_year = year(mdy(Date)))
+
+# Tourn_winners - filter V2 to only include the final match from each tournament
+tourn_winners = v2 %&gt;% filter(Round == &#39;TheFinal&#39;)
+</code></pre>
+
+<h3>Monthly Distribution of Tournaments by Surface (Clay, Hard, Grass)</h3>
+
+<p>Let&#39;s answer question 1 from above! </p>
+
+<p>Question 1: What does the distribution of tournaments look like by surface?
+<img src="figure/unnamed-chunk-5-1.png" alt="plot of chunk unnamed-chunk-5"></p>
+
+<p>Overall, it appears that hard court tournaments tend to be played at the beginning and end of the year (The tennis season lasts from January-November). Clay court season lasts February through June, with a few tournaments taking place in July and August. Grass court season tends to be limited to June and July, but the number of tournaments played increased from 4 to 5 after 2014. The number of tournaments being played each month appears to be relatively comparable across 2012-2017.</p>
+
+<h3>Monthly Distribution of Tournaments by Court Type (Indoor/Outdoor)</h3>
+
+<p>Moving on to Question 2! </p>
+
+<p>What does the distribution of tournaments look like by court type?</p>
+
+<p><img src="figure/unnamed-chunk-6-1.png" alt="plot of chunk unnamed-chunk-6"></p>
+
+<p>Indoor tournaments appear to only be played in February and then September-November each year.</p>
+
+<h3>Code to Extract Player Names</h3>
+
+<p>Now for Questions 3-5! </p>
+
+<p>In order to answer these, we need to be able to query a player&#39;s name (string input) and find the corresponding name in the dataset. </p>
+
+<p>For example, a query for &quot;Roger Federer&quot; is found as &quot;FedererR.&quot; in the dataset whereas a query for &quot;Juan Martin Del Potro&quot; is found as &quot;DelPotroJ.M.&quot;. </p>
+
+<p>Thus, the extract_name_components function I created below allows for any player&#39;s name to be parsed and searched for in the dataset in order for results to be attributed accurately to the right player in the query.</p>
+
+<pre><code class="r">##### Requires: Player name in the following format: &quot;FirstName MiddleName(optional) LastName&quot;
+##### Modifies: Nothing
+##### Effects: Finds the player name formatted string as represented in the dataset to query with in player analyses below
+extract_name_components &lt;- function(input_str){
+
+  query_idx &lt;- c()
+  query_name &lt;- &quot;&quot;
+
+  input_name &lt;- str_split(str_to_title(input_str), pattern = &quot; &quot;)
+
+  # Extract first and last name from input
+  last_name &lt;- input_name[[1]][length(input_name[[1]])]
+  first_name &lt;- input_name[[1]][1]
+
+  first_initial &lt;- substr(first_name, 1,1)
+  query &lt;- str_c(last_name, first_initial)
+
+  # Search for Player name in Player 1 column
+  query_idx &lt;- grep(query, v2$Player1 )
+
+  # If player name not found in Player 1 column, search Player 2 column
+  if(length(query_idx) == 0){
+
+     query_idx &lt;- grep(search_name, v2$Player2 )
+    query_name &lt;- v2$Player2[query_idx[1]]
+
+    # If name not found in Player 2 column, return null
+    if(length(query_idx) == 0){
+      return(NULL)
+    }
+
+    return(query_name)
+  }
+
+  query_name &lt;- v2$Player1[query_idx[1]]
+
+  query_name
+}
+</code></pre>
+
+<h3>Examining Player Wins by Surface</h3>
+
+<p>Now that we can successfully query a player&#39;s name in the dataset, hooray! On to Question 3 then!</p>
+
+<p>Question 3: Given a specific player&#39;s name, what does the distribution of their wins look like by surface?</p>
+
+<pre><code class="r"># Analysis 3 - Look at specific player wins by surface
+
+##### Requires: Player&#39;s name in the following format: &quot;FirstName MiddleName(optional) LastName&quot;
+##### Modifies: Nothing
+##### Output: A Player&#39;s Match Wins by Surface from 2012-2017
+wins_by_surface &lt;- function(player_name){
+
+  query &lt;- extract_name_components(player_name)
+
+  surface_wins_plot &lt;- v2 %&gt;% filter(Winner == query ) %&gt;% ggplot() + 
+    geom_bar(aes(x = date_year, fill = Surface), position = &quot;dodge&quot;) +
+    scale_x_continuous(breaks = c(2012,2013,2014,2015,2016, 2017)) +
+    labs(x = &quot;Year&quot;, y = &quot;Match Wins&quot;, 
+         title = str_c(str_to_title(player_name), &quot;&#39;s Match Wins by Surface (2012-2017)&quot;, sep = &quot;&quot;))
+
+  grid.arrange(surface_wins_plot + 
+                 labs(caption = &quot;Note: Missing Data After July 2017&quot;))
+
+}
+</code></pre>
+
+<p>Let&#39;s try this out! </p>
+
+<p>Example 1: Roger Federer</p>
+
+<pre><code class="r">wins_by_surface(&quot;Roger Federer&quot;) 
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-9-1.png" alt="plot of chunk unnamed-chunk-9"></p>
+
+<p>It appears that a majority of Federer&#39;s wins came on hard courts throughout the years. He had over 50 match wins on hard courts in 2014, the most hard court wins compared to other years in the dataset.</p>
+
+<p>Example 2: Rafael Nadal</p>
+
+<pre><code class="r">wins_by_surface(&quot;Rafael Nadal&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-10-1.png" alt="plot of chunk unnamed-chunk-10"></p>
+
+<p>The majority of Nadal&#39;s wins come on clay. However, he has a similar record on hard courts during this time period. His worst performance record is on grass since he has the fewest wins on that surface compared to clay and hard courts.</p>
+
+<h3>Examining a Player&#39;s Rankings History between 2012-2017</h3>
+
+<p>Moving on to question 4 now!</p>
+
+<p>Question 4: Given a specific player&#39;s name, what does their playing history look like from 2012-2017?</p>
+
+<pre><code class="r"># Analysis 4 - Rankings History from 2012-2017 for a specific player
+
+##### Requires: Player&#39;s name in the following format: &quot;FirstName MiddleName(optional) LastName&quot;
+##### Modifies: Nothing
+##### Output: A Player&#39;s Full Rankings History from 2012-2017
+rankings_history_full &lt;- function(player_name){
+
+  query = extract_name_components(player_name)
+
+  v3 &lt;- v2 %&gt;% filter(Player1 == query | Player2 == query) %&gt;%
+    mutate(player_rank = ifelse(Player1 == query, as.integer(Player1_Rank),
+                               as.integer(Player2_Rank)))
+
+  rankings_plot &lt;- v3 %&gt;% ggplot(aes(x = mdy(Date), y = player_rank)) +
+    geom_point(color = &quot;blue&quot;) + 
+    scale_y_reverse() +
+    scale_x_date(date_labels = &quot;%b %y&quot;) +
+    labs(x = &quot;Time&quot;, y = &quot;Singles Ranking&quot;, 
+         title = str_c(&quot;Rankings History for 2012-2017:&quot;, str_to_title(player_name), sep = &quot; &quot;))
+
+  grid.arrange(rankings_plot + 
+                 labs(caption = &quot;Note: Missing Data After July 2017&quot;))
+
+}
+</code></pre>
+
+<p>Let&#39;s try this out!</p>
+
+<p>Example: Dominic Thiem</p>
+
+<pre><code class="r">rankings_history_full(&quot;Dominic Thiem&quot;)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-12-1.png" alt="plot of chunk unnamed-chunk-12"></p>
+
+<p>Thiem&#39;s ranking in 2012 was around 400. Then he rapidly climbed the rankings playing Challenger tournaments (hence missing data points in 2013 and 2014 - this dataset only covers the ATP World Tour, not the Challenger circuit). He reached the Top 100 in early 2014 and then the Top 50 midway through 2014. </p>
+
+<h3>Top N Rankings History for a Player</h3>
+
+<p>Last question to address as part of the exploratory analysis!</p>
+
+<p>Question 5: Given a specific player&#39;s name, what does their playing history look like for Top N? Example(Top 10, 30, 50, 100, etc.)</p>
+
+<pre><code class="r"># Analysis 5 - Top N Rankings History for a specific player
+##### Requires: Player&#39;s name in the following format: &quot;FirstName MiddleName(optional) LastName&quot;
+##### Modifies: Nothing
+##### Output: A Player&#39;s Rankings History for Top N where N = 10,20,30,50,etc.
+rankings_topn&lt;- function(player_name, n){
+
+  query = extract_name_components(player_name)
+
+  v3 &lt;- v2 %&gt;% filter(Player1 == query | Player2 == query) %&gt;%
+    mutate(player_rank = ifelse(Player1 == query, as.integer(Player1_Rank),
+                                as.integer(Player2_Rank))) %&gt;% 
+    filter(player_rank &lt;= n)
+
+  topn_plot &lt;- v3 %&gt;% ggplot(aes(x = mdy(Date), y = player_rank)) +
+    geom_point(color = &quot;blue&quot;) + 
+    scale_y_reverse() +
+    scale_x_date(date_labels = &quot;%b %y&quot;) +
+  labs(x = &quot;Time&quot;, y = &quot;Singles Ranking&quot;, 
+       title = str_c(&quot;Top&quot;, n, &quot;Rankings History:&quot;, str_to_title(player_name), sep = &quot; &quot;))
+
+  grid.arrange(topn_plot + 
+                 labs(caption = &quot;Note: Missing Data After July 2017&quot;))
+
+} 
+</code></pre>
+
+<p>Let&#39;s try it out!</p>
+
+<p>Example: Dominic Thiem&#39;s Rankings History for Top 30 </p>
+
+<pre><code class="r">rankings_topn(&quot;Dominic Thiem&quot;, 30)
+</code></pre>
+
+<p><img src="figure/unnamed-chunk-14-1.png" alt="plot of chunk unnamed-chunk-14"></p>
+
+<p>Thiem reached the Top 20 in 2015 and then the Top 10 in 2016. He has consistently stayed inside the Top 10 since then. </p>
+
+<p>That&#39;s it for now! I enjoyed taking a look at this dataset and I look forward to performing more analyses in the future!</p>
+
+</body>
+
+</html>
