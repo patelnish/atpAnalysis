@@ -1,0 +1,313 @@
+---
+title: "Exploratory Analysis of 2012-2017 ATP World Tour Dataset"
+author: "Nisha Patel"
+#output: html_document
+output: github_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This report analyzes data from 2012-2017 collected on the ATP World Tour (Men's Professional Tennis Circuit). It should be noted that the data for 2017 is incomplete: data is missing after July 2017. The following questions below were addressed:
+
+1. What does the distribution of tournaments look like by surface?
+2. What does the distribution of tournaments look like by court type?
+3. Given a specific player's name, what does the distribution of their wins look like by surface?
+4. Given a specific player's name, what does their rankings history look like from 2012-2017?
+5. Given a specific player's name, what does their Top N rankings history look like? Example: Top 10, 30, 50, 100, etc.
+
+### Code to Install Packages
+```{r, message = FALSE, echo=TRUE, warning=FALSE, results='hide'}
+#### Requires: Package name
+#### Modifies: Nothing
+#### Effects: Installs package if not installed already
+install_packages <- function(pkg) { 
+  
+  # Install package if it is not already
+  if (!(pkg %in% installed.packages()[, "Package"])){ 
+    
+    install.packages(pkg, repos='http://cran.us.r-project.org')
+  }
+  
+  library(pkg, character.only = TRUE)
+  
+} # end installPackages()
+
+pkg_list = c("tidyverse", "stringr", "lubridate", "gridExtra")
+lapply(pkg_list, install_packages)
+```
+
+### Read in the Input File
+First step of analysis: Read in the dataset!
+
+
+```{r, warning=FALSE, message=FALSE}
+# Read in the input file/dataset
+v1 <- read_csv("ATP Dataset_2012-01 to 2017-07_Int_V4.csv")
+
+```
+Here is a look at all the variables in the dataset:
+```{r}
+colnames(v1)
+```
+
+
+Upon looking at the columns and their data types, I needed to take 2 steps before I could perform  exploratory analysis:
+
+1. I added in a month column and year column. There were existing columns for month and year in the dataset as seen above, but these columns were in text format, not date format. 
+
+2. Every match for each round of all tournaments 2012-2017 can be found in the dataset. I created a subset of the data called tourn_winners that only featured the final match from each tournament. This way, I can accurately account for each tournament one time (in order to answer Questions 1 and 2!)
+
+```{r, warning=FALSE, message=FALSE}
+
+# Parse to get month and year components 
+v2 <- v1 %>% mutate(date_month = month(mdy(Date), label = T, abbr = T),
+                                         date_year = year(mdy(Date)))
+
+# Tourn_winners - filter V2 to only include the final match from each tournament
+tourn_winners = v2 %>% filter(Round == 'TheFinal')
+
+```
+
+
+### Monthly Distribution of Tournaments by Surface (Clay, Hard, Grass)
+Let's answer question 1 from above! 
+
+Question 1: What does the distribution of tournaments look like by surface?
+```{r, echo=FALSE, fig.width=14, fig.height=8, message = FALSE, cache=TRUE}
+# Analysis 1 - Monthly Distribution of Tournaments by Surface (Clay, Hard, Grass) 
+surface_plot <- tourn_winners  %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = date_month, fill = Surface), position = "dodge") +
+  scale_y_continuous(breaks = c(0,2,4,6,8,10)) +
+  labs(x = "Month", y = "Count", title = "Monthly Distribution of ATP Tournaments by Surface (2012-2017)") +
+  facet_wrap(~date_year) 
+
+grid.arrange(surface_plot + 
+                 labs(caption = "Note: Missing Data After July 2017"))
+
+```
+
+Overall, it appears that hard court tournaments tend to be played at the beginning and end of the year (The tennis season lasts from January-November). Clay court season lasts February through June, with a few tournaments taking place in July and August. Grass court season tends to be limited to June and July, but the number of tournaments played increased from 4 to 5 after 2014. The number of tournaments being played each month appears to be relatively comparable across 2012-2017.
+
+
+### Monthly Distribution of Tournaments by Court Type (Indoor/Outdoor)
+Moving on to Question 2! 
+
+What does the distribution of tournaments look like by court type?
+
+```{r, echo=FALSE, fig.width=14, fig.height=8, message = FALSE, cache=TRUE}
+# Analysis 2 - Monthly Distribution of Tournaments by Court Type (Indoor/Outdoor) 
+court_plot <- tourn_winners %>% 
+  ggplot() +
+  geom_bar(mapping = aes(x = date_month, fill = Court), position = "dodge") +
+  scale_y_continuous(breaks = c(0,2,4,6,8,10)) +
+  labs(x = "Month", y = "Count", title = "Monthly Distribution of ATP Tournaments by Court Type (2012-2017)") +
+  facet_wrap(~date_year)
+
+grid.arrange(court_plot + 
+               labs(caption = "Note: Missing Data After July 2017"))
+
+```
+
+
+Indoor tournaments appear to only be played in February and then September-November each year.
+
+### Code to Extract Player Names
+
+Now for Questions 3-5! 
+
+In order to answer these, we need to be able to query a player's name (string input) and find the corresponding name in the dataset. 
+
+For example, a query for "Roger Federer" is found as "FedererR." in the dataset whereas a query for "Juan Martin Del Potro" is found as "DelPotroJ.M.". 
+
+Thus, the extract_name_components function I created below allows for any player's name to be parsed and searched for in the dataset in order for results to be attributed accurately to the right player in the query.
+
+```{r, echo = TRUE}
+##### Requires: Player name in the following format: "FirstName MiddleName(optional) LastName"
+##### Modifies: Nothing
+##### Effects: Finds the player name formatted string as represented in the dataset to query with in player analyses below
+extract_name_components <- function(input_str){
+ 
+  query_idx <- c()
+  query_name <- ""
+  
+  input_name <- str_split(str_to_title(input_str), pattern = " ")
+  
+  # Extract first and last name from input
+  last_name <- input_name[[1]][length(input_name[[1]])]
+  first_name <- input_name[[1]][1]
+   
+  first_initial <- substr(first_name, 1,1)
+  query <- str_c(last_name, first_initial)
+  
+  # Search for Player name in Player 1 column
+  query_idx <- grep(query, v2$Player1 )
+  
+  # If player name not found in Player 1 column, search Player 2 column
+  if(length(query_idx) == 0){
+   
+     query_idx <- grep(search_name, v2$Player2 )
+    query_name <- v2$Player2[query_idx[1]]
+    
+    # If name not found in Player 2 column, return null
+    if(length(query_idx) == 0){
+      return(NULL)
+    }
+   
+    return(query_name)
+  }
+  
+  query_name <- v2$Player1[query_idx[1]]
+  
+  query_name
+}
+```
+
+
+### Examining Player Wins by Surface
+
+Now that we can successfully query a player's name in the dataset, hooray! On to Question 3 then!
+
+Question 3: Given a specific player's name, what does the distribution of their wins look like by surface?
+```{r, echo = TRUE}
+# Analysis 3 - Look at specific player wins by surface
+
+##### Requires: Player's name in the following format: "FirstName MiddleName(optional) LastName"
+##### Modifies: Nothing
+##### Output: A Player's Match Wins by Surface from 2012-2017
+wins_by_surface <- function(player_name){
+  
+  query <- extract_name_components(player_name)
+  
+  surface_wins_plot <- v2 %>% filter(Winner == query ) %>% ggplot() + 
+    geom_bar(aes(x = date_year, fill = Surface), position = "dodge") +
+    scale_x_continuous(breaks = c(2012,2013,2014,2015,2016, 2017)) +
+    labs(x = "Year", y = "Match Wins", 
+         title = str_c(str_to_title(player_name), "'s Match Wins by Surface (2012-2017)", sep = ""))
+  
+  grid.arrange(surface_wins_plot + 
+                 labs(caption = "Note: Missing Data After July 2017"))
+  
+}
+```
+
+
+Let's try this out! 
+
+Example 1: Roger Federer
+
+```{r, fig.width=8, fig.height=8, message = FALSE}
+wins_by_surface("Roger Federer") 
+     
+
+```
+
+It appears that a majority of Federer's wins came on hard courts throughout the years. He had over 50 match wins on hard courts in 2014, the most hard court wins compared to other years in the dataset.
+
+Example 2: Rafael Nadal
+```{r, fig.width=8, fig.height= 8}
+wins_by_surface("Rafael Nadal")
+
+```
+
+The majority of Nadal's wins come on clay. However, he has a similar record on hard courts during this time period. His worst performance record is on grass since he has the fewest wins on that surface compared to clay and hard courts.
+
+### Examining a Player's Rankings History between 2012-2017 
+Moving on to question 4 now!
+
+Question 4: Given a specific player's name, what does their playing history look like from 2012-2017?
+```{r}
+# Analysis 4 - Rankings History from 2012-2017 for a specific player
+
+##### Requires: Player's name in the following format: "FirstName MiddleName(optional) LastName"
+##### Modifies: Nothing
+##### Output: A Player's Full Rankings History from 2012-2017
+rankings_history_full <- function(player_name){
+  
+  query = extract_name_components(player_name)
+ 
+  v3 <- v2 %>% filter(Player1 == query | Player2 == query) %>%
+    mutate(player_rank = ifelse(Player1 == query, as.integer(Player1_Rank),
+                               as.integer(Player2_Rank)))
+    
+  rankings_plot <- v3 %>% ggplot(aes(x = mdy(Date), y = player_rank)) +
+    geom_point(color = "blue") + 
+    scale_y_reverse() +
+    scale_x_date(date_labels = "%b %y") +
+    labs(x = "Time", y = "Singles Ranking", 
+         title = str_c("Rankings History for 2012-2017:", str_to_title(player_name), sep = " "))
+  
+  grid.arrange(rankings_plot + 
+                 labs(caption = "Note: Missing Data After July 2017"))
+  
+}
+```
+
+
+Let's try this out!
+
+Example: Dominic Thiem
+
+```{r}
+rankings_history_full("Dominic Thiem")
+```
+
+
+Thiem's ranking in 2012 was around 400. Then he rapidly climbed the rankings playing Challenger tournaments (hence missing data points in 2013 and 2014 - this dataset only covers the ATP World Tour, not the Challenger circuit). He reached the Top 100 in early 2014 and then the Top 50 midway through 2014. 
+
+### Top N Rankings History for a Player
+
+Last question to address as part of the exploratory analysis!
+
+Question 5: Given a specific player's name, what does their playing history look like for Top N? Example(Top 10, 30, 50, 100, etc.)
+
+```{r, echo = TRUE}
+# Analysis 5 - Top N Rankings History for a specific player
+##### Requires: Player's name in the following format: "FirstName MiddleName(optional) LastName"
+##### Modifies: Nothing
+##### Output: A Player's Rankings History for Top N where N = 10,20,30,50,etc.
+rankings_topn<- function(player_name, n){
+  
+  query = extract_name_components(player_name)
+  
+  v3 <- v2 %>% filter(Player1 == query | Player2 == query) %>%
+    mutate(player_rank = ifelse(Player1 == query, as.integer(Player1_Rank),
+                                as.integer(Player2_Rank))) %>% 
+    filter(player_rank <= n)
+  
+  topn_plot <- v3 %>% ggplot(aes(x = mdy(Date), y = player_rank)) +
+    geom_point(color = "blue") + 
+    scale_y_reverse() +
+    scale_x_date(date_labels = "%b %y") +
+  labs(x = "Time", y = "Singles Ranking", 
+       title = str_c("Top", n, "Rankings History:", str_to_title(player_name), sep = " "))
+  
+  grid.arrange(topn_plot + 
+                 labs(caption = "Note: Missing Data After July 2017"))
+  
+} 
+
+```
+
+Let's try it out!
+
+Example: Dominic Thiem's Rankings History for Top 30 
+
+```{r,  fig.width=8, fig.height=8}
+
+rankings_topn("Dominic Thiem", 30)
+```
+
+
+Thiem reached the Top 20 in 2015 and then the Top 10 in 2016. He has consistently stayed inside the Top 10 since then. 
+
+
+That's it for now! I enjoyed taking a look at this dataset and I look forward to performing more analyses in the future!
+
+
+
+
+
